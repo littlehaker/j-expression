@@ -9,7 +9,7 @@ const defualtEnv: Environment = {
   add: (a, b) => a + b,
   minus: (a, b) => a - b,
   and: (...args) => args.reduce((a, b) => a && b, true),
-  val: 15,
+  or: (...args) => args.reduce((a, b) => a || b, false),
   list: (...list) => {
     return list;
   },
