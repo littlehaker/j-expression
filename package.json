@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "build": "tsup",
-    "test": "jest"
+    "test": "jest --coverage"
   },
   "keywords": [
     "s-expression",
