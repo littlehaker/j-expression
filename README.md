@@ -44,6 +44,13 @@ What's the alternative of list? JSON! We can use JSON to represent S-expression.
 
 And `j-expression` is a simple interpreter to eval these expressions.
 
+### Scenario
+This kind of expression can be used for dynamic rules.
+
+We can provide a UI/Editor to generate such expression, then eval it to get the return value.
+
+Please check the demo(https://j-expression-editor.vercel.app) and the source code(https://github.com/littlehaker/j-expression-editor) for a simple editor.
+
 ### Install
 
 `npm i j-expression`
