@@ -51,7 +51,9 @@ We can provide a UI/Editor to generate such expression, then eval it to get the 
 
 Please check the demo(https://j-expression-editor.vercel.app) and the source code(https://github.com/littlehaker/j-expression-editor) for a simple editor.
 
-### Install
+![screenshot](https://raw.githubusercontent.com/littlehaker/j-expression-editor/main/docs/screenshot.png)
+
+### Installation
 
 `npm i j-expression`
 
