@@ -27,12 +27,17 @@ export default class JExpression {
   eval(x: Expression): any {
     if (typeof x === "string") {
       if (x.startsWith(this.prefix)) {
-        // Symbol
-        const symbol = x.replace(this.prefix, "");
-        return this.env[symbol];
+        // If String startsWith prefix
+        const doublePrefix = `${this.prefix}${this.prefix}`;
+        if (x.startsWith(`${this.prefix}${this.prefix}`)) {
+          return x.replace(doublePrefix, this.prefix);
+        } else {
+          // Symbol
+          const symbol = x.replace(this.prefix, "");
+          return this.env[symbol];
+        }
       } else {
         // String
-        // TODO: If String startsWith prefix
         return x;
       }
     } else if (!(x instanceof Array)) {

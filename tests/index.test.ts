@@ -6,6 +6,18 @@ beforeAll(() => {
   expr = new JExpression();
 });
 
+test("types", () => {
+  // number
+  expect(expr.eval(1)).toBe(1);
+  // symbol
+  expect(expr.eval('$add')).toBeInstanceOf(Function);
+  // string
+  expect(expr.eval('one')).toBe('one');
+  expect(expr.eval("$$add")).toBe("$add"); // string with prefix
+  // boolean
+  expect(expr.eval(true)).toBe(true);
+});
+
 test("default env", () => {
   expect(expr.eval(["$add", 1, 2])).toBe(3);
   expect(expr.eval(["$minus", 2, 1])).toBe(1);

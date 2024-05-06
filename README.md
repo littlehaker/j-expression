@@ -32,7 +32,9 @@ What's the alternative of list? JSON! We can use JSON to represent S-expression.
 
 ```javascript
 // String startsWith "$" like "$append" is a symbol live in the Environment, otherwise "Hello " is a string.
-["$append", "Hello ", 'world!'] // => (append "Hello " "world!")
+// String startsWith "$$" will escape this rule.
+["$append", "Hello ", "world!"] // => (append "Hello " "world!") => "Hello world!"
+["$append", "$$Hello ", "world!"] // => (append "$Hello " "world!") => "$Hello world!"
 
 ["$quote", ["$add", 1, 2]] // => (quote (+ 1 2)) => '(+ 1 2)
 
