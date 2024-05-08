@@ -41,7 +41,7 @@ export default class JExpression {
         return x;
       }
     } else if (!(x instanceof Array)) {
-      // Literal
+      // value
       return x;
     } else {
       // Cond
@@ -59,6 +59,7 @@ export default class JExpression {
         // Eval
         return this.eval(this.eval(x[1]));
       } else {
+        // Function call
         const proc = this.eval(x[0]);
         if (!(proc instanceof Function)) {
           throw new Error(`${x[0]} is not a function`);
@@ -67,6 +68,54 @@ export default class JExpression {
           return this.eval(arg);
         });
         return proc(...args);
+      }
+    }
+  }
+  async evalAsync(x: Expression): Promise<any> {
+    if (typeof x === "string") {
+      if (x.startsWith(this.prefix)) {
+        // If String startsWith prefix
+        const doublePrefix = `${this.prefix}${this.prefix}`;
+        if (x.startsWith(`${this.prefix}${this.prefix}`)) {
+          return Promise.resolve(x.replace(doublePrefix, this.prefix));
+        } else {
+          // Symbol
+          const symbol = x.replace(this.prefix, "");
+          return Promise.resolve(this.env[symbol]);
+        }
+      } else {
+        // String
+        return Promise.resolve(x);
+      }
+    } else if (!(x instanceof Array)) {
+      // Literal
+      return Promise.resolve(x);
+    } else {
+      // Cond
+      if (x[0] === `${this.prefix}cond`) {
+        const conditions = x.slice(1);
+        for (const [cond, val] of conditions) {
+          if (await this.evalAsync(cond)) {
+            return await this.evalAsync(val);
+          }
+        }
+      } else if (x[0] === `${this.prefix}quote`) {
+        // Quote
+        return Promise.resolve(x[1]);
+      } else if (x[0] === `${this.prefix}eval`) {
+        // Eval
+        return await this.evalAsync(await this.evalAsync(x[1]));
+      } else {
+        const proc = await this.evalAsync(x[0]);
+        if (!(proc instanceof Function)) {
+          throw new Error(`${x[0]} is not a function`);
+        }
+        const args = await Promise.all(
+          x.slice(1).map((arg) => {
+            return this.evalAsync(arg);
+          })
+        );
+        return Promise.resolve(proc(...args));
       }
     }
   }

@@ -10,9 +10,9 @@ test("types", () => {
   // number
   expect(expr.eval(1)).toBe(1);
   // symbol
-  expect(expr.eval('$add')).toBeInstanceOf(Function);
+  expect(expr.eval("$add")).toBeInstanceOf(Function);
   // string
-  expect(expr.eval('one')).toBe('one');
+  expect(expr.eval("one")).toBe("one");
   expect(expr.eval("$$add")).toBe("$add"); // string with prefix
   // boolean
   expect(expr.eval(true)).toBe(true);
@@ -63,5 +63,34 @@ test("define", () => {
 });
 
 test("not a function call error", () => {
-  expect(() => expr.eval(["$unknown", 1, 2])).toThrow();
+  expect(() => expr.eval(["$unknown", 1, 2])).toThrow(
+    "$unknown is not a function"
+  );
+});
+
+test("async", async () => {
+  expr.define("deferred", Promise.resolve(42));
+  expect(await expr.evalAsync("$deferred")).toBe(42);
+
+  expect(await expr.evalAsync("$$add")).toBe("$add"); // string with prefix
+
+  // condition
+  expr.define("addAsync", async (a, b) => a + b);
+  expect(
+    await expr.evalAsync([
+      "$cond",
+      [["$gt", ["$addAsync", 1, 2], 1], "foo"],
+      [true, "bar"],
+    ])
+  ).toBe("foo");
+
+  // eval & quote
+  expect(await expr.evalAsync(["$eval", ["$quote", ["$addAsync", 1, 2]]])).toBe(
+    3
+  );
+
+  // thrown
+  expect(expr.evalAsync(["$unknown", 1, 2])).rejects.toThrow(
+    "$unknown is not a function"
+  );
 });

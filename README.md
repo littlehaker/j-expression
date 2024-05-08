@@ -109,6 +109,16 @@ Environment is where the interpreter accesses the symbols.
 ["$eval", ["$quote", ["$add", 1, 2]]] // => 3
 ```
 
+### Asynchronous
+You can use `evalAsync` to do asynchronous evaluation.
+
+```javascript
+expr.define("addAsync", async (a, b) => a + b);
+expr.define("deferredValue", Promise.resolve(42));
+
+await expr.evalAsync(["$addAsync", 1, "$deferredValue"]) // => 43
+```
+
 ### Limitation
 - No lexical scope
 - Dynamic scope only
