@@ -39,7 +39,7 @@ What's the alternative of list? JSON! We can use JSON to represent S-expression.
 ["$quote", ["$add", 1, 2]] // => (quote (+ 1 2)) => '(+ 1 2)
 
 ["$add", 1, 1] // =>  (+ 1 1)   ["$add", 1, 1] makes more sense than ["$+", 1, 1]
-["$minus", 8, 1] // => (- 8 1)
+["$subtract", 8, 1] // => (- 8 1)
 
 ["$list", 1, 2, 3] // => (list 1 2 3) => '(1 2 3)
 ```
@@ -80,11 +80,12 @@ Environment is where the interpreter accesses the symbols.
 ["$lt", 2, 1] // => false
 ["$eq", 2, 1] // => false
 ```
-- Computation: `$add` / `$minus`
+- Computation: `$add` / `$subtract` / `$multiply`  / `$divide`
 ```javascript
 ["$add", 2, 1] // => 3
-["$minus", 2, 1] // => 1
-["$add", "foo", "bar"] // => "foobar"
+["$subtract", 2, 1] // => 1
+["$multiply", 2, 2] // => 4
+["$divide", 2, 1] // => 2
 ```
 - Condition: `$if` / `$cond`
 ```javascript

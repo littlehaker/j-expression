@@ -7,7 +7,9 @@ const defualtEnv: Environment = {
   lt: (a, b) => a < b,
   eq: (a, b) => a == b,
   add: (a, b) => a + b,
-  minus: (a, b) => a - b,
+  subtract: (a, b) => a - b,
+  multiply: (a, b) => a * b,
+  divide: (a, b) => a / b,
   and: (...args) => args.reduce((a, b) => a && b, true),
   or: (...args) => args.reduce((a, b) => a || b, false),
   list: (...list) => {
@@ -41,7 +43,7 @@ export default class JExpression {
         return x;
       }
     } else if (!(x instanceof Array)) {
-      // value
+      // Value
       return x;
     } else {
       // Cond

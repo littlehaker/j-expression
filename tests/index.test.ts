@@ -7,20 +7,25 @@ beforeAll(() => {
 });
 
 test("types", () => {
-  // number
+  // Number
   expect(expr.eval(1)).toBe(1);
-  // symbol
+  // Symbol
   expect(expr.eval("$add")).toBeInstanceOf(Function);
-  // string
+  // String
   expect(expr.eval("one")).toBe("one");
-  expect(expr.eval("$$add")).toBe("$add"); // string with prefix
-  // boolean
+  expect(expr.eval("$$add")).toBe("$add"); // String with prefix
+  // Boolean
   expect(expr.eval(true)).toBe(true);
 });
 
 test("default env", () => {
+  // Computation
   expect(expr.eval(["$add", 1, 2])).toBe(3);
-  expect(expr.eval(["$minus", 2, 1])).toBe(1);
+  expect(expr.eval(["$subtract", 2, 1])).toBe(1);
+  expect(expr.eval(["$multiply", 2, 2])).toBe(4);
+  expect(expr.eval(["$divide", 2, 1])).toBe(2);
+
+  // Comparision
   expect(expr.eval(["$gt", 2, 1])).toBe(true);
   expect(expr.eval(["$lt", 2, 1])).toBe(false);
   expect(expr.eval(["$eq", 1, 1])).toBe(true);
@@ -72,9 +77,9 @@ test("async", async () => {
   expr.define("deferred", Promise.resolve(42));
   expect(await expr.evalAsync("$deferred")).toBe(42);
 
-  expect(await expr.evalAsync("$$add")).toBe("$add"); // string with prefix
+  expect(await expr.evalAsync("$$add")).toBe("$add"); // String with prefix
 
-  // condition
+  // Condition
   expr.define("addAsync", async (a, b) => a + b);
   expect(
     await expr.evalAsync([
@@ -84,12 +89,12 @@ test("async", async () => {
     ])
   ).toBe("foo");
 
-  // eval & quote
+  // Eval & Quote
   expect(await expr.evalAsync(["$eval", ["$quote", ["$addAsync", 1, 2]]])).toBe(
     3
   );
 
-  // thrown
+  // Thrown
   expect(expr.evalAsync(["$unknown", 1, 2])).rejects.toThrow(
     "$unknown is not a function"
   );
