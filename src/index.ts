@@ -26,99 +26,85 @@ export default class JExpression {
   define(symbol: string, val: any) {
     this.env[symbol] = val;
   }
-  eval(x: Expression): any {
+  _resolve(x: Expression, isAsync: boolean) {
+    if (isAsync) {
+      return Promise.resolve(x);
+    } else {
+      return x;
+    }
+  }
+  _eval(x: Expression, isAsync: boolean): any {
     if (typeof x === "string") {
       if (x.startsWith(this.prefix)) {
         // If String startsWith prefix
         const doublePrefix = `${this.prefix}${this.prefix}`;
         if (x.startsWith(`${this.prefix}${this.prefix}`)) {
-          return x.replace(doublePrefix, this.prefix);
+          return this._resolve(x.replace(doublePrefix, this.prefix), isAsync);
         } else {
           // Symbol
           const symbol = x.replace(this.prefix, "");
-          return this.env[symbol];
+          return this._resolve(this.env[symbol], isAsync);
         }
       } else {
         // String
-        return x;
+        return this._resolve(x, isAsync);
       }
     } else if (!(x instanceof Array)) {
       // Value
-      return x;
+      return this._resolve(x, isAsync);
     } else {
       // Cond
       if (x[0] === `${this.prefix}cond`) {
         const conditions = x.slice(1);
         for (const [cond, val] of conditions) {
-          if (this.eval(cond)) {
-            return this.eval(val);
+          if (this._eval(cond, isAsync)) {
+            return this._eval(val, isAsync);
           }
         }
       } else if (x[0] === `${this.prefix}quote`) {
         // Quote
-        return x[1];
+        return this._resolve(x[1], isAsync);
       } else if (x[0] === `${this.prefix}eval`) {
         // Eval
-        return this.eval(this.eval(x[1]));
+        if (isAsync) {
+          return (async () => {
+            return await this._eval(await this._eval(x[1], isAsync), isAsync);
+          })();
+        } else {
+          return this._eval(this._eval(x[1], isAsync), isAsync);
+        }
       } else {
         // Function call
-        const proc = this.eval(x[0]);
-        if (!(proc instanceof Function)) {
-          throw new Error(`${x[0]} is not a function`);
+        if (isAsync) {
+          return (async () => {
+            const proc = await this._eval(x[0], isAsync);
+            if (!(proc instanceof Function)) {
+              throw new Error(`${x[0]} is not a function`);
+            }
+            const args = await Promise.all(
+              x.slice(1).map((arg) => {
+                return this._eval(arg, isAsync);
+              })
+            );
+            return this._resolve(proc(...args), isAsync);
+          })();
+        } else {
+          const proc = this._eval(x[0], isAsync);
+          if (!(proc instanceof Function)) {
+            throw new Error(`${x[0]} is not a function`);
+          }
+          const args = x.slice(1).map((arg) => {
+            return this._eval(arg, isAsync);
+          });
+          return this._resolve(proc(...args), isAsync);
         }
-        const args = x.slice(1).map((arg) => {
-          return this.eval(arg);
-        });
-        return proc(...args);
       }
     }
   }
+  eval(x: Expression): any {
+    return this._eval(x, false);
+  }
   async evalAsync(x: Expression): Promise<any> {
-    if (typeof x === "string") {
-      if (x.startsWith(this.prefix)) {
-        // If String startsWith prefix
-        const doublePrefix = `${this.prefix}${this.prefix}`;
-        if (x.startsWith(`${this.prefix}${this.prefix}`)) {
-          return Promise.resolve(x.replace(doublePrefix, this.prefix));
-        } else {
-          // Symbol
-          const symbol = x.replace(this.prefix, "");
-          return Promise.resolve(this.env[symbol]);
-        }
-      } else {
-        // String
-        return Promise.resolve(x);
-      }
-    } else if (!(x instanceof Array)) {
-      // Literal
-      return Promise.resolve(x);
-    } else {
-      // Cond
-      if (x[0] === `${this.prefix}cond`) {
-        const conditions = x.slice(1);
-        for (const [cond, val] of conditions) {
-          if (await this.evalAsync(cond)) {
-            return await this.evalAsync(val);
-          }
-        }
-      } else if (x[0] === `${this.prefix}quote`) {
-        // Quote
-        return Promise.resolve(x[1]);
-      } else if (x[0] === `${this.prefix}eval`) {
-        // Eval
-        return await this.evalAsync(await this.evalAsync(x[1]));
-      } else {
-        const proc = await this.evalAsync(x[0]);
-        if (!(proc instanceof Function)) {
-          throw new Error(`${x[0]} is not a function`);
-        }
-        const args = await Promise.all(
-          x.slice(1).map((arg) => {
-            return this.evalAsync(arg);
-          })
-        );
-        return Promise.resolve(proc(...args));
-      }
-    }
+    return await this._eval(x, true);
   }
 }
