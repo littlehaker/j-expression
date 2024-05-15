@@ -2,17 +2,17 @@ type Environment = Record<string, any>;
 type Expression = any | Expression[];
 
 const defualtEnv: Environment = {
-  if: (cond, t, f) => (cond ? t : f),
-  gt: (a, b) => a > b,
-  lt: (a, b) => a < b,
-  eq: (a, b) => a == b,
-  add: (a, b) => a + b,
-  subtract: (a, b) => a - b,
-  multiply: (a, b) => a * b,
-  divide: (a, b) => a / b,
-  and: (...args) => args.reduce((a, b) => a && b, true),
-  or: (...args) => args.reduce((a, b) => a || b, false),
-  list: (...list) => {
+  if: (cond: boolean, t: any, f: any) => (cond ? t : f),
+  gt: (a: number, b: number) => a > b,
+  lt: (a: number, b: number) => a < b,
+  eq: (a: any, b: any) => a == b,
+  add: (a: number, b: number) => a + b,
+  subtract: (a: number, b: number) => a - b,
+  multiply: (a: number, b: number) => a * b,
+  divide: (a: number, b: number) => a / b,
+  and: (...args: boolean[]) => args.reduce((a, b) => a && b, true),
+  or: (...args: boolean[]) => args.reduce((a, b) => a || b, false),
+  list: (...list: any[]) => {
     return list;
   },
 };
