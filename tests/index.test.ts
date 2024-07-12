@@ -1,5 +1,9 @@
 import JExpression from "../src";
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 let expr;
 
 beforeAll(() => {
@@ -54,6 +58,12 @@ test("$cond", () => {
   ).toBe("bar");
 });
 
+test("$let", () => {
+  expect(expr.eval(["$let", ["$a", 1], "$a"])).toBe(1);
+  expect(expr.eval(["$let", ["$a", 2, "$b", 3], ["$add", "$a", "$b"]])).toBe(5);
+  expect(expr.eval(["$let", ["$a", 1, "$b", ["$add", "$a", 1]], "$b"])).toBe(2);
+});
+
 test("$quote", () => {
   expect(expr.eval(["$quote", ["$add", 1, 2]])).toEqual(["$add", 1, 2]);
 });
@@ -79,8 +89,12 @@ test("async", async () => {
 
   expect(await expr.evalAsync("$$add")).toBe("$add"); // String with prefix
 
+  expr.define("addAsync", async (a, b) => {
+    await sleep(10);
+    return a + b;
+  });
+
   // Condition
-  expr.define("addAsync", async (a, b) => a + b);
   expect(
     await expr.evalAsync([
       "$cond",
@@ -93,6 +107,15 @@ test("async", async () => {
   expect(await expr.evalAsync(["$eval", ["$quote", ["$addAsync", 1, 2]]])).toBe(
     3
   );
+
+  // Let
+  expect(
+    await expr.evalAsync([
+      "$let",
+      ["$a", 1, "$b", ["$addAsync", "$a", 1]],
+      "$b",
+    ])
+  ).toBe(2);
 
   // Thrown
   expect(expr.evalAsync(["$unknown", 1, 2])).rejects.toThrow(

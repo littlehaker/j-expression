@@ -33,6 +33,9 @@ export default class JExpression {
       return x;
     }
   }
+  getSymbolString(s: string) {
+    return s.replace(this.prefix, "");
+  }
   _eval(x: Expression, isAsync: boolean, env: Environment): any {
     if (typeof x === "string") {
       if (x.startsWith(this.prefix)) {
@@ -42,8 +45,8 @@ export default class JExpression {
           return this._resolve(x.replace(doublePrefix, this.prefix), isAsync);
         } else {
           // Symbol
-          const symbol = x.replace(this.prefix, "");
-          return this._resolve(this.env[symbol], isAsync);
+          const symbol = this.getSymbolString(x);
+          return this._resolve(env[symbol], isAsync);
         }
       } else {
         // String
@@ -76,6 +79,35 @@ export default class JExpression {
           })();
         } else {
           return this._eval(this._eval(x[1], isAsync, env), isAsync, env);
+        }
+      } else if (x[0] === `${this.prefix}let`) {
+        const newEnv = Object.assign({}, env);
+        // Let bindings, lexical scope
+        // ["$let", ["$a", 1, "$b", 2], ["$add", "$a", "$b"]]
+        if (isAsync) {
+          // ["$a", 1, "$b", 2]
+          return (async () => {
+            for (let i = 0; i < x[1].length; i++) {
+              const item = x[1][i];
+              if (i % 2 === 1) {
+                const symbolStr = this.getSymbolString(x[1][i - 1]);
+                // Bind new Environment
+                newEnv[symbolStr] = await this._eval(item, isAsync, newEnv);
+              }
+            }
+            return this._eval(x[2], isAsync, newEnv);
+          })();
+        } else {
+          // ["$a", 1, "$b", 2]
+          for (let i = 0; i < x[1].length; i++) {
+            const item = x[1][i];
+            if (i % 2 === 1) {
+              const symbolStr = this.getSymbolString(x[1][i - 1]);
+              // Bind new Environment
+              newEnv[symbolStr] = this._eval(item, isAsync, newEnv);
+            }
+          }
+          return this._eval(x[2], isAsync, newEnv);
         }
       } else {
         // Function call
