@@ -33,7 +33,7 @@ export default class JExpression {
       return x;
     }
   }
-  _eval(x: Expression, isAsync: boolean): any {
+  _eval(x: Expression, isAsync: boolean, env: Environment): any {
     if (typeof x === "string") {
       if (x.startsWith(this.prefix)) {
         // If String startsWith prefix
@@ -57,8 +57,8 @@ export default class JExpression {
       if (x[0] === `${this.prefix}cond`) {
         const conditions = x.slice(1);
         for (const [cond, val] of conditions) {
-          if (this._eval(cond, isAsync)) {
-            return this._eval(val, isAsync);
+          if (this._eval(cond, isAsync, env)) {
+            return this._eval(val, isAsync, env);
           }
         }
       } else if (x[0] === `${this.prefix}quote`) {
@@ -68,33 +68,37 @@ export default class JExpression {
         // Eval
         if (isAsync) {
           return (async () => {
-            return await this._eval(await this._eval(x[1], isAsync), isAsync);
+            return await this._eval(
+              await this._eval(x[1], isAsync, env),
+              isAsync,
+              env
+            );
           })();
         } else {
-          return this._eval(this._eval(x[1], isAsync), isAsync);
+          return this._eval(this._eval(x[1], isAsync, env), isAsync, env);
         }
       } else {
         // Function call
         if (isAsync) {
           return (async () => {
-            const proc = await this._eval(x[0], isAsync);
+            const proc = await this._eval(x[0], isAsync, env);
             if (!(proc instanceof Function)) {
               throw new Error(`${x[0]} is not a function`);
             }
             const args = await Promise.all(
               x.slice(1).map((arg) => {
-                return this._eval(arg, isAsync);
+                return this._eval(arg, isAsync, env);
               })
             );
             return this._resolve(proc(...args), isAsync);
           })();
         } else {
-          const proc = this._eval(x[0], isAsync);
+          const proc = this._eval(x[0], isAsync, env);
           if (!(proc instanceof Function)) {
             throw new Error(`${x[0]} is not a function`);
           }
           const args = x.slice(1).map((arg) => {
-            return this._eval(arg, isAsync);
+            return this._eval(arg, isAsync, env);
           });
           return this._resolve(proc(...args), isAsync);
         }
@@ -102,9 +106,9 @@ export default class JExpression {
     }
   }
   eval(x: Expression): any {
-    return this._eval(x, false);
+    return this._eval(x, false, this.env);
   }
   async evalAsync(x: Expression): Promise<any> {
-    return await this._eval(x, true);
+    return await this._eval(x, true, this.env);
   }
 }
