@@ -110,6 +110,19 @@ Environment is where the interpreter accesses the symbols.
 ["$eval", ["$quote", ["$add", 1, 2]]] // => 3
 ```
 
+### Lexical Scope
+You can use `let` binding to create lexical scopes.
+```javascript
+["let", ["$a", 1, "$b", 2], // => let a = 1, b = 2
+  ["$add", "$a", "$b"]] // => ["$add", 1, 2] => 3
+```
+Also, you can create nested lexical scopes.
+```javascript
+["$let", ["$a", 1], // => let a = 1
+  ["$let", ["$b", 2], // => let b = 2
+    ["$add", "$a", "$b"]]] // => ["$add", 1, 2] => 3
+```
+
 ### Asynchronous
 You can use `evalAsync` to do asynchronous evaluation.
 
@@ -119,11 +132,6 @@ expr.define("deferredValue", Promise.resolve(42));
 
 await expr.evalAsync(["$addAsync", 1, "$deferredValue"]) // => 43
 ```
-
-### Limitation
-- No lexical scope
-- Dynamic scope only
-- Poor default environment but easy to extend
 
 ### License
 
