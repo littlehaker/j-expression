@@ -62,6 +62,10 @@ test("$let", () => {
   expect(expr.eval(["$let", ["$a", 1], "$a"])).toBe(1);
   expect(expr.eval(["$let", ["$a", 2, "$b", 3], ["$add", "$a", "$b"]])).toBe(5);
   expect(expr.eval(["$let", ["$a", 1, "$b", ["$add", "$a", 1]], "$b"])).toBe(2);
+  // Nested let bindings
+  expect(
+    expr.eval(["$let", ["$a", 1], ["$let", ["$b", 2], ["$add", "$a", "$b"]]])
+  ).toBe(3);
 });
 
 test("$quote", () => {
@@ -112,10 +116,10 @@ test("async", async () => {
   expect(
     await expr.evalAsync([
       "$let",
-      ["$a", 1, "$b", ["$addAsync", "$a", 1]],
+      ["$a", 1, "$b", ["$addAsync", "$a", "$deferred"]],
       "$b",
     ])
-  ).toBe(2);
+  ).toBe(43);
 
   // Thrown
   expect(expr.evalAsync(["$unknown", 1, 2])).rejects.toThrow(
