@@ -49,6 +49,12 @@ test("default env", () => {
   expect(expr.eval(["$list", ["$add", 1, 2], 2])).toEqual([3, 2]);
 });
 
+test("$fn", () => {
+  expect(
+    expr.eval([["$fn", ["$a", "$b"], ["$list", "$a", "$b"]], 1, 2])
+  ).toEqual([1, 2]);
+});
+
 test("$cond", () => {
   expect(
     expr.eval(["$cond", [["$gt", ["$add", 1, 2], 1], "foo"], [true, "bar"]])
@@ -97,6 +103,15 @@ test("async", async () => {
     await sleep(10);
     return a + b;
   });
+
+  // Function
+  expect(
+    await expr.evalAsync([
+      ["$fn", ["$a", "$b"], ["$addAsync", "$a", "$b"]],
+      1,
+      2,
+    ])
+  ).toBe(3);
 
   // Condition
   expect(

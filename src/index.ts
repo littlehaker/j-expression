@@ -64,6 +64,20 @@ export default class JExpression {
             return this._eval(val, isAsync, env);
           }
         }
+      } else if (
+        x[0] === `${this.prefix}fn` ||
+        x[0] === `${this.prefix}lambda`
+      ) {
+        // Function / Lambda
+        // ["$fn", ["$a", "$b"], ["$add", "$a", "$b"]]
+        return (...args) => {
+          const newEnv = Object.assign({}, env);
+          // Binding parameters to function arguments
+          x[1].forEach((item, i) => {
+            newEnv[this.getSymbolString(item)] = args[i];
+          });
+          return this._eval(x[2], isAsync, newEnv);
+        };
       } else if (x[0] === `${this.prefix}quote`) {
         // Quote
         return this._resolve(x[1], isAsync);
