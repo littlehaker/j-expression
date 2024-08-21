@@ -8,3 +8,6 @@
 /dist
 
 /.vscode
+
+# Ignore nvm config file
+/.nvmrc

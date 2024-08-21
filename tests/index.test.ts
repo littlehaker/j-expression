@@ -68,6 +68,11 @@ test("$let", () => {
   ).toBe(3);
 });
 
+test("$def", () => {
+  expr.eval(["$def", "$foo", 123]);
+  expect(expr.eval("$foo")).toBe(123);
+});
+
 test("$quote", () => {
   expect(expr.eval(["$quote", ["$add", 1, 2]])).toEqual(["$add", 1, 2]);
 });
@@ -120,6 +125,10 @@ test("async", async () => {
       "$b",
     ])
   ).toBe(43);
+
+  // Def
+  await expr.evalAsync(["$def", "$fooDeferred", Promise.resolve(123)]);
+  expect(await expr.evalAsync("$fooDeferred")).toBe(123);
 
   // Thrown
   expect(expr.evalAsync(["$unknown", 1, 2])).rejects.toThrow(

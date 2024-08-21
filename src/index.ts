@@ -80,6 +80,21 @@ export default class JExpression {
         } else {
           return this._eval(this._eval(x[1], isAsync, env), isAsync, env);
         }
+      } else if (x[0] === `${this.prefix}def`) {
+        // Definition
+        // ['$def', '$a', 1]
+        const symbolStr = this.getSymbolString(x[1]);
+        if (isAsync) {
+          return (async () => {
+            const val = await this._eval(x[2], isAsync, env);
+            env[symbolStr] = val;
+            return val;
+          })();
+        } else {
+          const val = this._eval(x[2], isAsync, env);
+          env[symbolStr] = val;
+          return val;
+        }
       } else if (x[0] === `${this.prefix}let`) {
         const newEnv = Object.assign({}, env);
         // Let bindings, lexical scope
