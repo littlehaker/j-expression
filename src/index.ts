@@ -82,7 +82,7 @@ export default class JExpression {
         }
       } else if (x[0] === `${this.prefix}def`) {
         // Definition
-        // ['$def', '$a', 1]
+        // ["$def", "$a", 1]
         const symbolStr = this.getSymbolString(x[1]);
         if (isAsync) {
           return (async () => {
@@ -94,6 +94,28 @@ export default class JExpression {
           const val = this._eval(x[2], isAsync, env);
           env[symbolStr] = val;
           return val;
+        }
+      } else if (x[0] === `${this.prefix}do`) {
+        // ["$do", ["$def", "$a", 1], ["$a"]]
+        const segments = x.slice(1);
+        if (isAsync) {
+          return (async () => {
+            for (let i = 0; i < segments.length; i++) {
+              const exp = segments[i];
+              const ret = await this._eval(exp, isAsync, env);
+              if (i === segments.length - 1) {
+                return ret;
+              }
+            }
+          })();
+        } else {
+          for (let i = 0; i < segments.length; i++) {
+            const exp = segments[i];
+            const ret = this._eval(exp, isAsync, env);
+            if (i === segments.length - 1) {
+              return ret;
+            }
+          }
         }
       } else if (x[0] === `${this.prefix}let`) {
         const newEnv = Object.assign({}, env);
