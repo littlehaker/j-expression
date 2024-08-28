@@ -78,6 +78,20 @@ test("$do", () => {
   expect(expr.eval(["$do", ["$add", 1, 2], ["$subtract", 2, 1]])).toBe(1);
 });
 
+test("$fn", () => {
+  expect(expr.eval([["$fn", ["$a"], ["$add", "$a", 1]], 2])).toBe(3);
+  expect(expr.eval([["$fn", ["$a", "$b"], ["$add", "$a", "$b"]], 1, 2])).toBe(
+    3
+  );
+  expect(
+    expr.eval([
+      "$let",
+      ["$inc", ["$fn", ["$a"], ["$add", "$a", 1]]],
+      ["$inc", 2],
+    ])
+  ).toBe(3);
+});
+
 test("$quote", () => {
   expect(expr.eval(["$quote", ["$add", 1, 2]])).toEqual(["$add", 1, 2]);
 });
@@ -144,6 +158,25 @@ test("async", async () => {
       ["$addAsync", 1, "$deferred"],
     ])
   ).toBe(43);
+
+  // Fn
+  expect(
+    await expr.evalAsync([["$fn", ["$a"], ["$addAsync", "$a", 1]], 2])
+  ).toBe(3);
+  expect(
+    await expr.evalAsync([
+      ["$fn", ["$a", "$b"], ["$addAsync", "$a", "$b"]],
+      1,
+      2,
+    ])
+  ).toBe(3);
+  expect(
+    await expr.evalAsync([
+      "$let",
+      ["$incAsync", ["$fn", ["$a"], ["$addAsync", "$a", 1]]],
+      ["$incAsync", 2],
+    ])
+  ).toBe(3);
 
   // Thrown
   expect(expr.evalAsync(["$unknown", 1, 2])).rejects.toThrow(

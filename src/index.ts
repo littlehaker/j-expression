@@ -36,6 +36,27 @@ export default class JExpression {
   getSymbolString(s: string) {
     return s.replace(this.prefix, "");
   }
+  runSegments(segments: Expression[], isAsync: boolean, env: Environment) {
+    if (isAsync) {
+      return (async () => {
+        for (let i = 0; i < segments.length; i++) {
+          const exp = segments[i];
+          const ret = await this._eval(exp, isAsync, env);
+          if (i === segments.length - 1) {
+            return ret;
+          }
+        }
+      })();
+    } else {
+      for (let i = 0; i < segments.length; i++) {
+        const exp = segments[i];
+        const ret = this._eval(exp, isAsync, env);
+        if (i === segments.length - 1) {
+          return ret;
+        }
+      }
+    }
+  }
   _eval(x: Expression, isAsync: boolean, env: Environment): any {
     if (typeof x === "string") {
       if (x.startsWith(this.prefix)) {
@@ -98,25 +119,18 @@ export default class JExpression {
       } else if (x[0] === `${this.prefix}do`) {
         // ["$do", ["$def", "$a", 1], ["$a"]]
         const segments = x.slice(1);
-        if (isAsync) {
-          return (async () => {
-            for (let i = 0; i < segments.length; i++) {
-              const exp = segments[i];
-              const ret = await this._eval(exp, isAsync, env);
-              if (i === segments.length - 1) {
-                return ret;
-              }
-            }
-          })();
-        } else {
-          for (let i = 0; i < segments.length; i++) {
-            const exp = segments[i];
-            const ret = this._eval(exp, isAsync, env);
-            if (i === segments.length - 1) {
-              return ret;
-            }
-          }
-        }
+        return this.runSegments(segments, isAsync, env);
+      } else if (x[0] === `${this.prefix}fn`) {
+        // ["$fn", ["$a", "$b"], ["$add", "$a", "$b"]]
+        return (...args: any) => {
+          const newEnv: Environment = Object.assign({}, env);
+          const variables = x[1];
+          variables.forEach((variable, i) => {
+            const symbolStr = this.getSymbolString(variable);
+            newEnv[symbolStr] = args[i];
+          });
+          return this._eval(x[2], isAsync, newEnv);
+        };
       } else if (x[0] === `${this.prefix}let`) {
         const newEnv = Object.assign({}, env);
         // Let bindings, lexical scope
