@@ -104,6 +104,26 @@ Environment is where the interpreter accesses the symbols.
 ```javascript
 ["$list", 1, 2, 3] // => [1, 2, 3]
 ```
+- Definition: `$def`
+```javascript
+["$def", "$answer", 42]
+"$answer" // => 42
+```
+- Function: `$fn`
+```javascript
+[
+  ["$fn", ["$val"], ["$add", "$val", 1]], // define a function with $val as parameter
+  3
+] // => 4
+```
+- Multi Expression: `$do`
+```javascript
+["$do",
+  ["$def", "$inc", ["$fn", ["$val"], ["$add", "$val", 1]]],
+  ["$inc", 3]
+] // => 4
+```
+
 - Eval: `$quote` / `$eval`
 ```javascript
 ["$quote", ["$add", 1, 2]] // => ["$add", 1, 2]
