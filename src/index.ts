@@ -2,7 +2,6 @@ type Environment = Record<string, any>;
 type Expression = any | Expression[];
 
 const defualtEnv: Environment = {
-  if: (cond: boolean, t: any, f: any) => (cond ? t : f),
   gt: (a: number, b: number) => a > b,
   lt: (a: number, b: number) => a < b,
   eq: (a: any, b: any) => a == b,
@@ -83,6 +82,23 @@ export default class JExpression {
         for (const [cond, val] of conditions) {
           if (this._eval(cond, isAsync, env)) {
             return this._eval(val, isAsync, env);
+          }
+        }
+      } else if (x[0] === `${this.prefix}if`) {
+        const [cond, t, f] = x.slice(1);
+        if (isAsync) {
+          return (async () => {
+            if (await this._eval(cond, isAsync, env)) {
+              return this._eval(t, isAsync, env);
+            } else {
+              return this._eval(f, isAsync, env);
+            }
+          })();
+        } else {
+          if (this._eval(cond, isAsync, env)) {
+            return this._eval(t, isAsync, env);
+          } else {
+            return this._eval(f, isAsync, env);
           }
         }
       } else if (x[0] === `${this.prefix}quote`) {

@@ -8,6 +8,9 @@ let expr;
 
 beforeAll(() => {
   expr = new JExpression();
+  expr.define("throw", (msg) => {
+    throw new Error(msg);
+  });
 });
 
 test("types", () => {
@@ -34,9 +37,6 @@ test("default env", () => {
   expect(expr.eval(["$lt", 2, 1])).toBe(false);
   expect(expr.eval(["$eq", 1, 1])).toBe(true);
 
-  expect(expr.eval(["$if", true, "foo", "bar"])).toBe("foo");
-  expect(expr.eval(["$if", false, "foo", "bar"])).toBe("bar");
-
   expect(expr.eval(["$and", true, false])).toBe(false);
   expect(expr.eval(["$and", true, true])).toBe(true);
   expect(expr.eval(["$and", false, false])).toBe(false);
@@ -56,6 +56,21 @@ test("$cond", () => {
   expect(
     expr.eval(["$cond", [["$gt", ["$add", 1, 2], 4], "foo"], [true, "bar"]])
   ).toBe("bar");
+});
+
+test("$if", () => {
+  expect(expr.eval(["$if", true, "foo", "bar"])).toBe("foo");
+  expect(expr.eval(["$if", false, "foo", "bar"])).toBe("bar");
+
+  // Lazy
+  expect(
+    expr.eval([
+      "$if",
+      true,
+      "foo",
+      ["$throw", "Something wrong"], // Error won't throw
+    ])
+  ).toBe("foo");
 });
 
 test("$let", () => {
@@ -130,6 +145,21 @@ test("async", async () => {
       [true, "bar"],
     ])
   ).toBe("foo");
+
+  // If
+  expr.define("trueAsync", Promise.resolve(true));
+  expr.define("falseAsync", Promise.resolve(false));
+  expect(
+    await expr.evalAsync([
+      "$if",
+      "$trueAsync",
+      "$deferred",
+      ["$throw", "Something wrong"],
+    ])
+  ).toBe(42);
+  expect(await expr.evalAsync(["$if", "$falseAsync", true, "$deferred"])).toBe(
+    42
+  );
 
   // Eval & Quote
   expect(await expr.evalAsync(["$eval", ["$quote", ["$addAsync", 1, 2]]])).toBe(
