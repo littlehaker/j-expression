@@ -79,9 +79,19 @@ export default class JExpression {
       // Cond
       if (x[0] === `${this.prefix}cond`) {
         const conditions = x.slice(1);
-        for (const [cond, val] of conditions) {
-          if (this._eval(cond, isAsync, env)) {
-            return this._eval(val, isAsync, env);
+        if (isAsync) {
+          return (async () => {
+            for (const [cond, val] of conditions) {
+              if (await this._eval(cond, isAsync, env)) {
+                return this._eval(val, isAsync, env);
+              }
+            }
+          })();
+        } else {
+          for (const [cond, val] of conditions) {
+            if (this._eval(cond, isAsync, env)) {
+              return this._eval(val, isAsync, env);
+            }
           }
         }
       } else if (x[0] === `${this.prefix}if`) {

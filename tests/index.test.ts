@@ -128,6 +128,9 @@ test("not a function call error", () => {
 
 test("async", async () => {
   expr.define("deferred", Promise.resolve(42));
+  expr.define("trueAsync", Promise.resolve(true));
+  expr.define("falseAsync", Promise.resolve(false));
+
   expect(await expr.evalAsync("$deferred")).toBe(42);
 
   expect(await expr.evalAsync("$$add")).toBe("$add"); // String with prefix
@@ -145,10 +148,15 @@ test("async", async () => {
       [true, "bar"],
     ])
   ).toBe("foo");
+  expect(
+    await expr.evalAsync([
+      "$cond",
+      ["$falseAsync", ["$throw", "Something wrong"]],
+      ["$trueAsync", "foo"],
+    ])
+  ).toBe("foo");
 
   // If
-  expr.define("trueAsync", Promise.resolve(true));
-  expr.define("falseAsync", Promise.resolve(false));
   expect(
     await expr.evalAsync([
       "$if",
