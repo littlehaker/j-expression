@@ -11,6 +11,7 @@ const defualtEnv: Environment = {
   divide: (a: number, b: number) => a / b,
   and: (...args: boolean[]) => args.reduce((a, b) => a && b, true),
   or: (...args: boolean[]) => args.reduce((a, b) => a || b, false),
+  not: (val: boolean) => !val,
   list: (...list: any[]) => {
     return list;
   },

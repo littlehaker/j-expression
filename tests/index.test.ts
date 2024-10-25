@@ -45,6 +45,9 @@ test("default env", () => {
   expect(expr.eval(["$or", true, true])).toBe(true);
   expect(expr.eval(["$or", false, false])).toBe(false);
 
+  expect(expr.eval(["$not", false])).toBe(true);
+  expect(expr.eval(["$not", true])).toBe(false);
+
   expect(expr.eval(["$list", 1, 2])).toEqual([1, 2]);
   expect(expr.eval(["$list", ["$add", 1, 2], 2])).toEqual([3, 2]);
 });
@@ -139,6 +142,13 @@ test("async", async () => {
     await sleep(10);
     return a + b;
   });
+
+  // Boolean
+  expect(await expr.evalAsync(["$not", "$trueAsync"])).toBe(false);
+  expect(await expr.evalAsync(["$and", "$trueAsync", "$falseAsync"])).toBe(
+    false
+  );
+  expect(await expr.evalAsync(["$or", "$trueAsync", "$falseAsync"])).toBe(true);
 
   // Condition
   expect(
