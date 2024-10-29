@@ -9,8 +9,6 @@ const defualtEnv: Environment = {
   subtract: (a: number, b: number) => a - b,
   multiply: (a: number, b: number) => a * b,
   divide: (a: number, b: number) => a / b,
-  and: (...args: boolean[]) => args.reduce((a, b) => a && b, true),
-  or: (...args: boolean[]) => args.reduce((a, b) => a || b, false),
   not: (val: boolean) => !val,
   list: (...list: any[]) => {
     return list;
@@ -111,6 +109,41 @@ export default class JExpression {
           } else {
             return this._eval(f, isAsync, env);
           }
+        }
+      } else if (x[0] === `${this.prefix}and`) {
+        if (isAsync) {
+          return (async () => {
+            for (const exp of x.slice(1)) {
+              if (!(await this._eval(exp, isAsync, env))) {
+                return false;
+              }
+            }
+            return true;
+          })();
+        } else {
+          for (const exp of x.slice(1)) {
+            if (!this._eval(exp, isAsync, env)) {
+              return false;
+            }
+          }
+          return true;
+        }
+      } else if (x[0] === `${this.prefix}or`) {
+        if (isAsync) {
+          return (async () => {
+            for (const exp of x.slice(1)) {
+              if (await this._eval(exp, isAsync, env)) {
+                return true;
+              }
+            }
+          })();
+        } else {
+          for (const exp of x.slice(1)) {
+            if (this._eval(exp, isAsync, env)) {
+              return true;
+            }
+          }
+          return false;
         }
       } else if (x[0] === `${this.prefix}quote`) {
         // Quote

@@ -37,17 +37,8 @@ test("default env", () => {
   expect(expr.eval(["$lt", 2, 1])).toBe(false);
   expect(expr.eval(["$eq", 1, 1])).toBe(true);
 
-  expect(expr.eval(["$and", true, false])).toBe(false);
-  expect(expr.eval(["$and", true, true])).toBe(true);
-  expect(expr.eval(["$and", false, false])).toBe(false);
 
-  expect(expr.eval(["$or", true, false])).toBe(true);
-  expect(expr.eval(["$or", true, true])).toBe(true);
-  expect(expr.eval(["$or", false, false])).toBe(false);
-
-  expect(expr.eval(["$not", false])).toBe(true);
-  expect(expr.eval(["$not", true])).toBe(false);
-
+  // List
   expect(expr.eval(["$list", 1, 2])).toEqual([1, 2]);
   expect(expr.eval(["$list", ["$add", 1, 2], 2])).toEqual([3, 2]);
 });
@@ -59,6 +50,24 @@ test("$cond", () => {
   expect(
     expr.eval(["$cond", [["$gt", ["$add", 1, 2], 4], "foo"], [true, "bar"]])
   ).toBe("bar");
+});
+
+test('boolean', () => {
+  // And
+  expect(expr.eval(["$and", true, false])).toBe(false);
+  expect(expr.eval(["$and", true, true])).toBe(true);
+  expect(expr.eval(["$and", false, false])).toBe(false);
+
+  // Or
+  expect(expr.eval(["$or", true, false])).toBe(true);
+  expect(expr.eval(["$or", true, true])).toBe(true);
+  expect(expr.eval(["$or", false, false])).toBe(false);
+  // Lazy
+  expect(expr.eval(["$or", true, ["$throw", "Something wrong"]])).toBe(true);
+
+  // Not
+  expect(expr.eval(["$not", false])).toBe(true);
+  expect(expr.eval(["$not", true])).toBe(false);
 });
 
 test("$if", () => {
@@ -148,6 +157,7 @@ test("async", async () => {
   expect(await expr.evalAsync(["$and", "$trueAsync", "$falseAsync"])).toBe(
     false
   );
+  expect(await expr.evalAsync(["$and", "$trueAsync", "$trueAsync"])).toBe(true);
   expect(await expr.evalAsync(["$or", "$trueAsync", "$falseAsync"])).toBe(true);
 
   // Condition
