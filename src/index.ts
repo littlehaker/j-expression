@@ -15,14 +15,229 @@ const defualtEnv: Environment = {
   },
 };
 
+interface SyntaxHandler {
+  sync: (j: JExpression, args: Expression[], env: Environment) => any;
+  async: (j: JExpression, args: Expression[], env: Environment) => Promise<any>;
+}
+
+const condSyntax: SyntaxHandler = {
+  sync: (j: JExpression, conditions: Expression[], env: Environment) => {
+    for (const [cond, val] of conditions) {
+      if (j._eval(cond, false, env)) {
+        return j._eval(val, false, env);
+      }
+    }
+  },
+  async: async (j: JExpression, conditions: Expression[], env: Environment) => {
+    for (const [cond, val] of conditions) {
+      if (await j._eval(cond, true, env)) {
+        return j._eval(val, true, env);
+      }
+    }
+  },
+};
+
+const ifSyntax: SyntaxHandler = {
+  // ["$if", true, "then", "else"]
+  sync: (j: JExpression, x: Expression[], env: Environment) => {
+    const [cond, t, f] = x
+    if (j._eval(cond, false, env)) {
+      return j._eval(t, false, env);
+    } else {
+      return j._eval(f, false, env);
+    }
+  },
+  async: async (j: JExpression, x: Expression[], env: Environment) => {
+    console.log(x);
+    const [cond, t, f] = x
+    if (await j._eval(cond, true, env)) {
+      return j._eval(t, true, env);
+    } else {
+      return j._eval(f, true, env);
+    }
+  }
+}
+
+const andSyntax: SyntaxHandler = {
+  // ["$and", true, false] => false
+  sync: (j: JExpression, x: Expression[], env: Environment) => {
+    for (const exp of x) {
+      if (!j._eval(exp, false, env)) {
+        return false;
+      }
+    }
+    return true;
+  },
+  async: async (j: JExpression, x: Expression[], env: Environment) => {
+    for (const exp of x) {
+      if (!(await j._eval(exp, true, env))) {
+        return false;
+      }
+    }
+    return true;
+  },
+};
+
+const orSyntax: SyntaxHandler = {
+  // ["$or", true, false] => true
+  sync: (j: JExpression, x: Expression[], env: Environment) => {
+    for (const exp of x) {
+      if (j._eval(exp, false, env)) {
+        return true;
+      }
+    }
+    return false;
+  },
+  async: async (j: JExpression, x: Expression[], env: Environment) => {
+    for (const exp of x) {
+      if (await j._eval(exp, true, env)) {
+        return true;
+      }
+    }
+    return false;
+  },
+};
+
+const quoteSyntax: SyntaxHandler = {
+  // ["$quote", "$foo"] => "$foo"
+  sync: (_j: JExpression, x: Expression[], _env: Environment) => {
+    return x[0];
+  },
+  async: async (_j: JExpression, x: Expression[], _env: Environment) => {
+    return Promise.resolve(x[0]);
+  },
+};
+
+const evalSyntax: SyntaxHandler = {
+  // ["$eval", ["$quote", ["$add", 1, 2]]] => 3
+  sync: (j: JExpression, x: Expression[], env: Environment) => {
+    return j._eval(j._eval(x[0], false, env), false, env);
+  },
+  async: async (j: JExpression, x: Expression[], env: Environment) => {
+    return await j._eval(await j._eval(x[0], true, env), true, env);
+  },
+};
+
+const defineSyntax: SyntaxHandler = {
+  sync: (j: JExpression, x: Expression[], env: Environment) => {
+    const symbolStr = j.getSymbolString(x[0]);
+    const val = j._eval(x[1], false, env);
+    env[symbolStr] = val;
+    return val;
+  },
+  async: async (j: JExpression, x: Expression[], env: Environment) => {
+    const symbolStr = j.getSymbolString(x[0]);
+    const val = await j._eval(x[1], true, env);
+    env[symbolStr] = val;
+    return val;
+  },
+};
+
+const doSyntax: SyntaxHandler = {
+  // ["$do", ["$add", 1, 2], ["$add", 3, 4]] => 7
+  sync: (j: JExpression, segments: Expression[], env: Environment) => {
+    for (let i = 0; i < segments.length; i++) {
+      const exp = segments[i];
+      const ret = j._eval(exp, false, env);
+      if (i === segments.length - 1) {
+        return ret;
+      }
+    }
+  },
+  async: async (j: JExpression, segments: Expression[], env: Environment) => {
+    for (let i = 0; i < segments.length; i++) {
+      const exp = segments[i];
+      const ret = await j._eval(exp, true, env);
+      if (i === segments.length - 1) {
+        return ret;
+      }
+    }
+  },
+};
+
+const fnSyntax: SyntaxHandler = {
+  // [["$fn", ["$a", "$b"], ["$add", "$a", "$b"]], 1, 2] => 3
+  sync: (j: JExpression, x: Expression[], env: Environment) => {
+    return (...args: any) => {
+      const newEnv: Environment = Object.assign({}, env);
+      const variables = x[0];
+      variables.forEach((variable, i) => {
+        const symbolStr = j.getSymbolString(variable);
+        newEnv[symbolStr] = args[i];
+      });
+      return j._eval(x[1], false, newEnv);
+    }
+  },
+  async: async (j: JExpression, x: Expression[], env: Environment) => {
+    return async (...args: any) => {
+      const newEnv: Environment = Object.assign({}, env);
+      const variables = x[0];
+      variables.forEach((variable, i) => {
+        const symbolStr = j.getSymbolString(variable);
+        newEnv[symbolStr] = args[i];
+      });
+      return await j._eval(x[1], true, newEnv);
+    }
+  }
+}
+
+const letSyntax: SyntaxHandler = {
+  // ["$let", ["$a", 1, "$b", 2], ["$add", "$a", "$b"]] => 3
+  sync: (j: JExpression, x: Expression[], env: Environment) => {
+    const newEnv = Object.assign({}, env);
+    for (let i = 0; i < x[0].length; i++) {
+      const item = x[0][i];
+      if (i % 2 === 1) {
+        const symbolStr = j.getSymbolString(x[0][i - 1]);
+        // Bind new Environment
+        newEnv[symbolStr] = j._eval(item, false, newEnv);
+      }
+    }
+    return j._eval(x[1], false, newEnv);
+  },
+  async: async (j: JExpression, x: Expression[], env: Environment) => {
+    const newEnv = Object.assign({}, env);
+    for (let i = 0; i < x[0].length; i++) {
+      const item = x[0][i];
+      if (i % 2 === 1) {
+        const symbolStr = j.getSymbolString(x[0][i - 1]);
+        // Bind new Environment
+        newEnv[symbolStr] = await j._eval(item, true, newEnv);
+      }
+    }
+    return await j._eval(x[1], true, newEnv);
+  },
+}
+
 export default class JExpression {
   prefix = "$";
   env: Environment;
+  syntax: Record<string, SyntaxHandler>;
   constructor(_env: Environment = {}) {
     this.env = Object.assign({}, _env, defualtEnv);
+    this.syntax = {};
+    this.initSyntax();
+  }
+  initSyntax() {
+    this.defineSyntax("cond", condSyntax);
+    this.defineSyntax("if", ifSyntax);
+    this.defineSyntax("and", andSyntax);
+    this.defineSyntax("or", orSyntax);
+    this.defineSyntax("quote", quoteSyntax);
+    this.defineSyntax("eval", evalSyntax);
+    this.defineSyntax("def", defineSyntax);
+    this.defineSyntax("do", doSyntax);
+    this.defineSyntax("fn", fnSyntax);
+    this.defineSyntax("let", letSyntax);
   }
   define(symbol: string, val: any) {
     this.env[symbol] = val;
+  }
+  defineSyntax(
+    syntax: string,
+    handler: SyntaxHandler
+  ) {
+    this.syntax[syntax] = handler;
   }
   _resolve(x: Expression, isAsync: boolean) {
     if (isAsync) {
@@ -34,33 +249,13 @@ export default class JExpression {
   getSymbolString(s: string) {
     return s.replace(this.prefix, "");
   }
-  runSegments(segments: Expression[], isAsync: boolean, env: Environment) {
-    if (isAsync) {
-      return (async () => {
-        for (let i = 0; i < segments.length; i++) {
-          const exp = segments[i];
-          const ret = await this._eval(exp, isAsync, env);
-          if (i === segments.length - 1) {
-            return ret;
-          }
-        }
-      })();
-    } else {
-      for (let i = 0; i < segments.length; i++) {
-        const exp = segments[i];
-        const ret = this._eval(exp, isAsync, env);
-        if (i === segments.length - 1) {
-          return ret;
-        }
-      }
-    }
-  }
+
   _eval(x: Expression, isAsync: boolean, env: Environment): any {
     if (typeof x === "string") {
       if (x.startsWith(this.prefix)) {
         // If String startsWith prefix
         const doublePrefix = `${this.prefix}${this.prefix}`;
-        if (x.startsWith(`${this.prefix}${this.prefix}`)) {
+        if (x.startsWith(doublePrefix)) {
           return this._resolve(x.replace(doublePrefix, this.prefix), isAsync);
         } else {
           // Symbol
@@ -75,176 +270,43 @@ export default class JExpression {
       // Value
       return this._resolve(x, isAsync);
     } else {
-      // Cond
-      if (x[0] === `${this.prefix}cond`) {
-        const conditions = x.slice(1);
-        if (isAsync) {
-          return (async () => {
-            for (const [cond, val] of conditions) {
-              if (await this._eval(cond, isAsync, env)) {
-                return this._eval(val, isAsync, env);
-              }
-            }
-          })();
-        } else {
-          for (const [cond, val] of conditions) {
-            if (this._eval(cond, isAsync, env)) {
-              return this._eval(val, isAsync, env);
-            }
-          }
-        }
-      } else if (x[0] === `${this.prefix}if`) {
-        const [cond, t, f] = x.slice(1);
-        if (isAsync) {
-          return (async () => {
-            if (await this._eval(cond, isAsync, env)) {
-              return this._eval(t, isAsync, env);
-            } else {
-              return this._eval(f, isAsync, env);
-            }
-          })();
-        } else {
-          if (this._eval(cond, isAsync, env)) {
-            return this._eval(t, isAsync, env);
+      // Syntax
+      const syntax = x[0];
+      if (typeof syntax === "string") {
+        const syntaxStr = this.getSymbolString(syntax);
+        const handler = this.syntax[syntaxStr];
+        if (handler) {
+          if (isAsync) {
+            return handler.async(this, x.slice(1), env);
           } else {
-            return this._eval(f, isAsync, env);
+            return handler.sync(this, x.slice(1), env);
           }
         }
-      } else if (x[0] === `${this.prefix}and`) {
-        if (isAsync) {
-          return (async () => {
-            for (const exp of x.slice(1)) {
-              if (!(await this._eval(exp, isAsync, env))) {
-                return false;
-              }
-            }
-            return true;
-          })();
-        } else {
-          for (const exp of x.slice(1)) {
-            if (!this._eval(exp, isAsync, env)) {
-              return false;
-            }
-          }
-          return true;
-        }
-      } else if (x[0] === `${this.prefix}or`) {
-        if (isAsync) {
-          return (async () => {
-            for (const exp of x.slice(1)) {
-              if (await this._eval(exp, isAsync, env)) {
-                return true;
-              }
-            }
-          })();
-        } else {
-          for (const exp of x.slice(1)) {
-            if (this._eval(exp, isAsync, env)) {
-              return true;
-            }
-          }
-          return false;
-        }
-      } else if (x[0] === `${this.prefix}quote`) {
-        // Quote
-        return this._resolve(x[1], isAsync);
-      } else if (x[0] === `${this.prefix}eval`) {
-        // Eval
-        if (isAsync) {
-          return (async () => {
-            return await this._eval(
-              await this._eval(x[1], isAsync, env),
-              isAsync,
-              env
-            );
-          })();
-        } else {
-          return this._eval(this._eval(x[1], isAsync, env), isAsync, env);
-        }
-      } else if (x[0] === `${this.prefix}def`) {
-        // Definition
-        // ["$def", "$a", 1]
-        const symbolStr = this.getSymbolString(x[1]);
-        if (isAsync) {
-          return (async () => {
-            const val = await this._eval(x[2], isAsync, env);
-            env[symbolStr] = val;
-            return val;
-          })();
-        } else {
-          const val = this._eval(x[2], isAsync, env);
-          env[symbolStr] = val;
-          return val;
-        }
-      } else if (x[0] === `${this.prefix}do`) {
-        // ["$do", ["$def", "$a", 1], ["$a"]]
-        const segments = x.slice(1);
-        return this.runSegments(segments, isAsync, env);
-      } else if (x[0] === `${this.prefix}fn`) {
-        // ["$fn", ["$a", "$b"], ["$add", "$a", "$b"]]
-        return (...args: any) => {
-          const newEnv: Environment = Object.assign({}, env);
-          const variables = x[1];
-          variables.forEach((variable, i) => {
-            const symbolStr = this.getSymbolString(variable);
-            newEnv[symbolStr] = args[i];
-          });
-          return this._eval(x[2], isAsync, newEnv);
-        };
-      } else if (x[0] === `${this.prefix}let`) {
-        const newEnv = Object.assign({}, env);
-        // Let bindings, lexical scope
-        // ["$let", ["$a", 1, "$b", 2], ["$add", "$a", "$b"]]
-        if (isAsync) {
-          // ["$a", 1, "$b", 2]
-          return (async () => {
-            for (let i = 0; i < x[1].length; i++) {
-              const item = x[1][i];
-              if (i % 2 === 1) {
-                const symbolStr = this.getSymbolString(x[1][i - 1]);
-                // Bind new Environment
-                newEnv[symbolStr] = await this._eval(item, isAsync, newEnv);
-              }
-            }
-            return this._eval(x[2], isAsync, newEnv);
-          })();
-        } else {
-          // ["$a", 1, "$b", 2]
-          for (let i = 0; i < x[1].length; i++) {
-            const item = x[1][i];
-            if (i % 2 === 1) {
-              const symbolStr = this.getSymbolString(x[1][i - 1]);
-              // Bind new Environment
-              newEnv[symbolStr] = this._eval(item, isAsync, newEnv);
-            }
-          }
-          return this._eval(x[2], isAsync, newEnv);
-        }
-      } else {
-        // Function call
-        if (isAsync) {
-          return (async () => {
-            const proc = await this._eval(x[0], isAsync, env);
-            if (!(proc instanceof Function)) {
-              throw new Error(`${x[0]} is not a function`);
-            }
-            const args = await Promise.all(
-              x.slice(1).map((arg) => {
-                return this._eval(arg, isAsync, env);
-              })
-            );
-            return this._resolve(proc(...args), isAsync);
-          })();
-        } else {
-          const proc = this._eval(x[0], isAsync, env);
+      }
+
+      // Function call
+      if (isAsync) {
+        return (async () => {
+          const proc = await this._eval(x[0], isAsync, env);
           if (!(proc instanceof Function)) {
             throw new Error(`${x[0]} is not a function`);
           }
-          const args = x.slice(1).map((arg) => {
-            return this._eval(arg, isAsync, env);
-          });
+          const args = await Promise.all(
+            x.slice(1).map((arg) => {
+              return this._eval(arg, isAsync, env);
+            })
+          );
           return this._resolve(proc(...args), isAsync);
+        })();
+      } else {
+        const proc = this._eval(x[0], isAsync, env);
+        if (!(proc instanceof Function)) {
+          throw new Error(`${x[0]} is not a function`);
         }
+        const args = x.slice(1).map((arg) => {
+          return this._eval(arg, isAsync, env);
+        });
+        return this._resolve(proc(...args), isAsync);
       }
     }
   }

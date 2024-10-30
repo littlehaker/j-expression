@@ -159,6 +159,9 @@ test("async", async () => {
   );
   expect(await expr.evalAsync(["$and", "$trueAsync", "$trueAsync"])).toBe(true);
   expect(await expr.evalAsync(["$or", "$trueAsync", "$falseAsync"])).toBe(true);
+  expect(await expr.evalAsync(["$or", "$falseAsync", "$falseAsync"])).toBe(
+    false
+  );
 
   // Condition
   expect(
