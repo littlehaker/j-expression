@@ -95,10 +95,11 @@ Environment is where the interpreter accesses the symbols.
   [["$lt", 2, 3], "bar"],
   [true, "baz"]] // => if 2 > 1 then "foo" else if 2 < 3 then "bar" else baz => "foo"
 ```
-- Boolean: `$and` / `$or`
+- Boolean: `$and` / `$or` / `$not`
 ```javascript
-["$and", true, false, true] // => false
-["$or", true, false, true] // => true
+["$and", true, false] // => false
+["$or", true, false] // => true
+["$not", true] // => false
 ```
 - List: `$list`
 ```javascript
