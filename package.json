@@ -1,6 +1,6 @@
 {
   "name": "j-expression",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "S-expression but in JSON",
   "repository": {
     "type": "git",
