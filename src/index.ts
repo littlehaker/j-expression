@@ -1,7 +1,23 @@
-type Environment = Record<string, any>;
-type Expression = any | Expression[];
+import condSyntax from './syntax/cond';
+import ifSyntax from './syntax/if';
+import andSyntax from './syntax/and';
+import orSyntax from './syntax/or';
+import quoteSyntax from './syntax/quote';
+import evalSyntax from './syntax/eval';
+import defineSyntax from './syntax/define';
+import doSyntax from './syntax/do';
+import fnSyntax from './syntax/fn';
+import letSyntax from './syntax/let';
 
-const defualtEnv: Environment = {
+export type Environment = Record<string, any>;
+export type Expression = any | Expression[];
+
+export interface SyntaxHandler {
+  sync: (j: JExpression, args: Expression[], env: Environment) => any;
+  async: (j: JExpression, args: Expression[], env: Environment) => Promise<any>;
+}
+
+const defaultEnv: Environment = {
   gt: (a: number, b: number) => a > b,
   lt: (a: number, b: number) => a < b,
   eq: (a: any, b: any) => a == b,
@@ -15,206 +31,12 @@ const defualtEnv: Environment = {
   },
 };
 
-interface SyntaxHandler {
-  sync: (j: JExpression, args: Expression[], env: Environment) => any;
-  async: (j: JExpression, args: Expression[], env: Environment) => Promise<any>;
-}
-
-const condSyntax: SyntaxHandler = {
-  sync: (j: JExpression, conditions: Expression[], env: Environment) => {
-    for (const [cond, val] of conditions) {
-      if (j._eval(cond, false, env)) {
-        return j._eval(val, false, env);
-      }
-    }
-  },
-  async: async (j: JExpression, conditions: Expression[], env: Environment) => {
-    for (const [cond, val] of conditions) {
-      if (await j._eval(cond, true, env)) {
-        return j._eval(val, true, env);
-      }
-    }
-  },
-};
-
-const ifSyntax: SyntaxHandler = {
-  // ["$if", true, "then", "else"]
-  sync: (j: JExpression, x: Expression[], env: Environment) => {
-    const [cond, t, f] = x
-    if (j._eval(cond, false, env)) {
-      return j._eval(t, false, env);
-    } else {
-      return j._eval(f, false, env);
-    }
-  },
-  async: async (j: JExpression, x: Expression[], env: Environment) => {
-    console.log(x);
-    const [cond, t, f] = x
-    if (await j._eval(cond, true, env)) {
-      return j._eval(t, true, env);
-    } else {
-      return j._eval(f, true, env);
-    }
-  }
-}
-
-const andSyntax: SyntaxHandler = {
-  // ["$and", true, false] => false
-  sync: (j: JExpression, x: Expression[], env: Environment) => {
-    for (const exp of x) {
-      if (!j._eval(exp, false, env)) {
-        return false;
-      }
-    }
-    return true;
-  },
-  async: async (j: JExpression, x: Expression[], env: Environment) => {
-    for (const exp of x) {
-      if (!(await j._eval(exp, true, env))) {
-        return false;
-      }
-    }
-    return true;
-  },
-};
-
-const orSyntax: SyntaxHandler = {
-  // ["$or", true, false] => true
-  sync: (j: JExpression, x: Expression[], env: Environment) => {
-    for (const exp of x) {
-      if (j._eval(exp, false, env)) {
-        return true;
-      }
-    }
-    return false;
-  },
-  async: async (j: JExpression, x: Expression[], env: Environment) => {
-    for (const exp of x) {
-      if (await j._eval(exp, true, env)) {
-        return true;
-      }
-    }
-    return false;
-  },
-};
-
-const quoteSyntax: SyntaxHandler = {
-  // ["$quote", "$foo"] => "$foo"
-  sync: (_j: JExpression, x: Expression[], _env: Environment) => {
-    return x[0];
-  },
-  async: async (_j: JExpression, x: Expression[], _env: Environment) => {
-    return Promise.resolve(x[0]);
-  },
-};
-
-const evalSyntax: SyntaxHandler = {
-  // ["$eval", ["$quote", ["$add", 1, 2]]] => 3
-  sync: (j: JExpression, x: Expression[], env: Environment) => {
-    return j._eval(j._eval(x[0], false, env), false, env);
-  },
-  async: async (j: JExpression, x: Expression[], env: Environment) => {
-    return await j._eval(await j._eval(x[0], true, env), true, env);
-  },
-};
-
-const defineSyntax: SyntaxHandler = {
-  sync: (j: JExpression, x: Expression[], env: Environment) => {
-    const symbolStr = j.getSymbolString(x[0]);
-    const val = j._eval(x[1], false, env);
-    env[symbolStr] = val;
-    return val;
-  },
-  async: async (j: JExpression, x: Expression[], env: Environment) => {
-    const symbolStr = j.getSymbolString(x[0]);
-    const val = await j._eval(x[1], true, env);
-    env[symbolStr] = val;
-    return val;
-  },
-};
-
-const doSyntax: SyntaxHandler = {
-  // ["$do", ["$add", 1, 2], ["$add", 3, 4]] => 7
-  sync: (j: JExpression, segments: Expression[], env: Environment) => {
-    for (let i = 0; i < segments.length; i++) {
-      const exp = segments[i];
-      const ret = j._eval(exp, false, env);
-      if (i === segments.length - 1) {
-        return ret;
-      }
-    }
-  },
-  async: async (j: JExpression, segments: Expression[], env: Environment) => {
-    for (let i = 0; i < segments.length; i++) {
-      const exp = segments[i];
-      const ret = await j._eval(exp, true, env);
-      if (i === segments.length - 1) {
-        return ret;
-      }
-    }
-  },
-};
-
-const fnSyntax: SyntaxHandler = {
-  // [["$fn", ["$a", "$b"], ["$add", "$a", "$b"]], 1, 2] => 3
-  sync: (j: JExpression, x: Expression[], env: Environment) => {
-    return (...args: any) => {
-      const newEnv: Environment = Object.assign({}, env);
-      const variables = x[0];
-      variables.forEach((variable, i) => {
-        const symbolStr = j.getSymbolString(variable);
-        newEnv[symbolStr] = args[i];
-      });
-      return j._eval(x[1], false, newEnv);
-    }
-  },
-  async: async (j: JExpression, x: Expression[], env: Environment) => {
-    return async (...args: any) => {
-      const newEnv: Environment = Object.assign({}, env);
-      const variables = x[0];
-      variables.forEach((variable, i) => {
-        const symbolStr = j.getSymbolString(variable);
-        newEnv[symbolStr] = args[i];
-      });
-      return await j._eval(x[1], true, newEnv);
-    }
-  }
-}
-
-const letSyntax: SyntaxHandler = {
-  // ["$let", ["$a", 1, "$b", 2], ["$add", "$a", "$b"]] => 3
-  sync: (j: JExpression, x: Expression[], env: Environment) => {
-    const newEnv = Object.assign({}, env);
-    for (let i = 0; i < x[0].length; i++) {
-      const item = x[0][i];
-      if (i % 2 === 1) {
-        const symbolStr = j.getSymbolString(x[0][i - 1]);
-        // Bind new Environment
-        newEnv[symbolStr] = j._eval(item, false, newEnv);
-      }
-    }
-    return j._eval(x[1], false, newEnv);
-  },
-  async: async (j: JExpression, x: Expression[], env: Environment) => {
-    const newEnv = Object.assign({}, env);
-    for (let i = 0; i < x[0].length; i++) {
-      const item = x[0][i];
-      if (i % 2 === 1) {
-        const symbolStr = j.getSymbolString(x[0][i - 1]);
-        // Bind new Environment
-        newEnv[symbolStr] = await j._eval(item, true, newEnv);
-      }
-    }
-    return await j._eval(x[1], true, newEnv);
-  },
-}
-
 export default class JExpression {
   prefix = "$";
   env: Environment;
   syntax: Record<string, SyntaxHandler>;
   constructor(_env: Environment = {}) {
-    this.env = Object.assign({}, _env, defualtEnv);
+    this.env = Object.assign({}, _env, defaultEnv);
     this.syntax = {};
     this.initSyntax();
   }
@@ -249,7 +71,6 @@ export default class JExpression {
   getSymbolString(s: string) {
     return s.replace(this.prefix, "");
   }
-
   _eval(x: Expression, isAsync: boolean, env: Environment): any {
     if (typeof x === "string") {
       if (x.startsWith(this.prefix)) {
